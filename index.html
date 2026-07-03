@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard</title>
+<style>
+    * { box-sizing: border-box; }
+
+    :root {
+        --bg: #eaf4fc;
+        --card-bg: rgba(255,255,255,0.85);
+        --text: #1a2b4c;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --input-bg: #f8fbff;
+        --input-border: #bcd7f5;
+        --secondary-bg: #e2ecf9;
+        --secondary-text: #1e3a8a;
+        --muted: #5b7299;
+    }
+
+    body.dark {
+        --bg: #0b1220;
+        --card-bg: rgba(17,25,40,0.85);
+        --text: #dbe9ff;
+        --accent: #00e5ff;
+        --accent-hover: #00b8cc;
+        --input-bg: #101b2d;
+        --input-border: #1f3a5f;
+        --secondary-bg: #142238;
+        --secondary-text: #7dd3fc;
+        --muted: #7891b8;
+    }
+
+    body {
+        font-family: -apple-system, Arial, sans-serif;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .shield-bg {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: -1;
+        opacity: 0.08;
+        pointer-events: none;
+        background-repeat: repeat;
+        background-size: 160px 160px;
+        transition: opacity 0.2s ease;
+    }
+    body.dark .shield-bg { opacity: 0.12; }
+
+    h1 {
+        color: var(--secondary-text);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 26px;
+        justify-content: space-between;
+    }
+
+    .theme-toggle {
+        background: var(--secondary-bg);
+        color: var(--secondary-text);
+        border: none;
+        border-radius: 20px;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        margin-top: 0;
+    }
+
+    .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .user-badge {
+        background: var(--secondary-bg);
+        color: var(--secondary-text);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 12px;
+        font-size: 14px;
+        border-radius: 10px;
+        border: 1px solid var(--input-border);
+        box-sizing: border-box;
+        margin-top: 8px;
+        background: var(--input-bg);
+        color: var(--text);
+    }
+    input:focus, textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    textarea { height: 130px; resize: vertical; }
+
+    .password-wrap {
+        position: relative;
+    }
+    .password-wrap input {
+        padding-right: 44px;
+    }
+    .eye-toggle {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(calc(-50% + 4px));
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px;
+        margin-top: 0;
+        color: var(--muted);
+    }
+
+    button {
+        margin-top: 12px;
+        padding: 12px 22px;
+        background: var(--accent);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: background 0.15s ease;
+    }
+    body.dark button { color: #06131f; }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+        background: var(--secondary-bg);
+        color: var(--secondary-text);
+        margin-left: 10px;
+    }
+    button.danger {
+        background: #fee2e2;
+        color: #b91c1c;
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-top: 0;
+    }
+    body.dark button.danger { background: #3a1414; color: #ff8a8a; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    #result {
+        margin-top: 20px;
+        padding: 16px;
+        border-radius: 10px;
+        display: none;
+    }
+    .phishing { background: #fef2f2; border: 1px solid #fca5a5; color: #1a2b4c; }
+    .safe { background: #f0fdf4; border: 1px solid #86efac; color: #1a2b4c; }
+    body.dark .phishing { background: #2a1414; border: 1px solid #7f1d1d; color: #dbe9ff; }
+    body.dark .safe { background: #10281a; border: 1px solid #14532d; color: #dbe9ff; }
+    .error { color: #dc2626; margin-top: 10px; font-size: 13px; }
+    .info { color: var(--muted); margin-top: 10px; font-size: 13px; }
+
+    .card {
+        background: var(--card-bg);
+        backdrop-filter: blur(4px);
+        padding: 22px;
+        border-radius: 14px;
+        box-shadow: 0 2px 12px rgba(30,58,138,0.08);
+        margin-bottom: 20px;
+        border: 1px solid var(--input-border);
+    }
+    .hidden { display: none; }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 10px;
+    }
+    .stat-box {
+        background: var(--secondary-bg);
+        border-radius: 10px;
+        padding: 14px 8px;
+        text-align: center;
+    }
+    .stat-number { font-size: 22px; font-weight: 700; color: var(--secondary-text); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+    .history-item { border-bottom: 1px solid var(--input-border); padding: 12px 0; font-size: 14px; cursor: pointer; }
+    .history-item:last-child { border-bottom: none; }
+    .history-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .badge-phish { background: #fee2e2; color: #b91c1c; }
+    .badge-safe { background: #dcfce7; color: #15803d; }
+    body.dark .badge-phish { background: #3a1414; color: #ff8a8a; }
+    body.dark .badge-safe { background: #10281a; color: #86efac; }
+    .history-preview { color: var(--muted); margin-top: 4px; }
+    .history-detail { margin-top: 10px; padding: 10px; background: var(--input-bg); border-radius: 8px; font-size: 13px; display: none; }
+    .history-detail.open { display: block; }
+
+    a.link { color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 13px; }
+
+    .spinner {
+        display: inline-block; width: 16px; height: 16px;
+        border: 2px solid var(--input-border); border-top-color: var(--accent);
+        border-radius: 50%; animation: spin 0.7s linear infinite;
+        vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .danger-zone { border: 1px solid #fca5a5; }
+    body.dark .danger-zone { border: 1px solid #7f1d1d; }
+
+    .step-indicator {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+    }
+
+    @media (max-width: 480px) {
+        body { padding: 12px; }
+        .stats-grid { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .stat-number { font-size: 18px; }
+        h1 { font-size: 20px; }
+        button { width: 100%; margin-left: 0 !important; margin-top: 8px; }
+        .topbar button, .theme-toggle { width: auto; }
+    }
+</style>
+</head>
+<body>
+
+<div class="shield-bg" id="shieldBg"></div>
+
+<h1>
+    <span>🛡️ PhishGuard</span>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+</h1>
+
+<div id="authSection" class="card">
+
+    <div id="loginForm">
+        <h3>Login</h3>
+        <input type="text" id="loginName" placeholder="Username">
+        <div class="password-wrap">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button type="button" class="eye-toggle" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
+        </div>
+        <button onclick="login()" id="loginBtn">Login</button>
+        <p style="margin-top:12px; font-size:13px;">
+            <a class="link" onclick="showForgotStep1()">Forgot password?</a>
+        </p>
+        <p style="font-size:13px;">No account? <a class="link" onclick="showSignupStep1()">Sign up</a></p>
+        <div id="loginError" class="error"></div>
+    </div>
+
+    <div id="signupStep1" class="hidden">
+        <h3>Sign Up</h3>
+        <div class="step-indicator">Step 1 of 2</div>
+        <input type="email" id="signupEmail" placeholder="Gmail address (e.g. you@gmail.com)">
+        <button onclick="goToSignupStep2()" id="signupStep1Btn">Next</button>
+        <p style="margin-top:12px; font-size:13px;">Already have an account? <a class="link" onclick="showLogin()">Login</a></p>
+        <div id="signupStep1Error" class="error"></div>
+    </div>
+
+    <div id="signupStep2" class="hidden">
+        <h3>Sign Up</h3>
+        <div class="step-indicator">Step 2 of 2 &mdash; <span id="signupEmailConfirm"></span> <a class="link" onclick="backToSignupStep1()">(change)</a></div>
+        <input type="text" id="signupName" placeholder="Choose a username">
+        <div class="password-wrap">
+            <input type="password" id="signupPassword" placeholder="Password (min 8 characters)">
+            <button type="button" class="eye-toggle" onclick="togglePasswordVisibility('signupPassword', this)">👁️</button>
+        </div>
+        <button onclick="signup()" id="signupBtn">Sign Up</button>
+        <div id="signupStep2Error" class="error"></div>
+    </div>
+
+    <div id="forgotStep1" class="hidden">
+        <h3>Reset Password</h3>
+        <p class="info">Enter your username to continue.</p>
+        <input type="text" id="forgotName" placeholder="Username">
+        <button onclick="checkForgotUser()" id="forgotStep1Btn">Continue</button>
+        <div id="forgotStep1Error" class="error"></div>
+        <p style="margin-top:12px; font-size:13px;"><a class="link" onclick="showLogin()">Back to login</a></p>
+    </div>
+
+    <div id="forgotStep2" class="hidden">
+        <h3>Reset Password</h3>
+        <p class="info">We'll send a code to <strong id="maskedEmailDisplay"></strong>. Is this correct?</p>
+        <button onclick="confirmSendCode()" id="confirmSendBtn">Yes, send the code</button>
+        <button class="secondary" onclick="showForgotStep1()">No, go back</button>
+        <div id="forgotStep2Error" class="error"></div>
+    </div>
+
+    <div id="forgotStep3" class="hidden">
+        <h3>Reset Password</h3>
+        <p class="info">Enter the code sent to <strong id="maskedEmailDisplay2"></strong> and choose a new password.</p>
+        <input type="text" id="resetCode" placeholder="6-digit code">
+        <div class="password-wrap">
+            <input type="password" id="resetNewPassword" placeholder="New password (min 8 characters)">
+            <button type="button" class="eye-toggle" onclick="togglePasswordVisibility('resetNewPassword', this)">👁️</button>
+        </div>
+        <button onclick="submitReset()" id="resetBtn">Reset Password</button>
+        <div id="resetError" class="error"></div>
+        <p style="margin-top:12px; font-size:13px;"><a class="link" onclick="showLogin()">Back to login</a></p>
+    </div>
+
+</div>
+
+<div id="dashboardSection" class="hidden">
+    <div class="topbar" style="margin-bottom: 16px;">
+        <span class="user-badge" id="userBadge">Loading...</span>
+        <button class="secondary" onclick="logout()">Logout</button>
+    </div>
+
+    <div class="card">
+        <h3>Your Stats</h3>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-number" id="statTotal">0</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statPhish">0</div>
+                <div class="stat-label">Phishing</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statSafe">0</div>
+                <div class="stat-label">Safe</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Scan an Email</h3>
+        <textarea id="emailText" placeholder="Paste email content here..."></textarea>
+        <br>
+        <button onclick="checkEmail()" id="analyzeBtn">Analyze Email</button>
+        <div id="result"></div>
+    </div>
+
+    <div class="card">
+        <div class="topbar">
+            <h3>Scan History</h3>
+            <div>
+                <button class="secondary" onclick="loadHistory()">Reload</button>
+                <button class="secondary" onclick="clearHistory()">Clear All</button>
+            </div>
+        </div>
+        <div id="historyList" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card danger-zone">
+        <h3 style="color:#dc2626;">Danger Zone</h3>
+        <p style="font-size:13px; color:var(--muted);">Deleting your account permanently removes your profile and all scan history. This cannot be undone.</p>
+        <button class="danger" onclick="deleteAccount()">Delete My Account</button>
+    </div>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+
+const SHIELD_SVG_LIGHT = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1'%3E%3Cpath d='M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z'/%3E%3Cpath d='M9 12l2 2 4-4'/%3E%3C/svg%3E";
+const SHIELD_SVG_DARK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 24 24' fill='none' stroke='%2300e5ff' stroke-width='1'%3E%3Cpath d='M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z'/%3E%3Cpath d='M9 12l2 2 4-4'/%3E%3C/svg%3E";
+
+let pendingForgotName = "";
+let pendingMaskedEmail = "";
+
+function applyShieldBg() {
+    const isDark = document.body.classList.contains("dark");
+    document.getElementById("shieldBg").style.backgroundImage =
+        `url("${isDark ? SHIELD_SVG_DARK : SHIELD_SVG_LIGHT}")`;
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle("dark");
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+    document.getElementById("themeBtn").textContent = isDark ? "☀️ Light" : "🌙 Dark";
+    applyShieldBg();
+}
+
+function initTheme() {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark") {
+        document.body.classList.add("dark");
+        document.getElementById("themeBtn").textContent = "☀️ Light";
+    }
+    applyShieldBg();
+}
+
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+    } else {
+        input.type = "password";
+        btn.textContent = "👁️";
+    }
+}
+
+function getToken() {
+    return localStorage.getItem("token");
+}
+
+function hideAllAuthForms() {
+    ["loginForm", "signupStep1", "signupStep2", "forgotStep1", "forgotStep2", "forgotStep3"].forEach(id => {
+        document.getElementById(id).classList.add("hidden");
+    });
+}
+
+function showLogin() {
+    hideAllAuthForms();
+    clearAuthFields();
+    document.getElementById("loginForm").classList.remove("hidden");
+}
+
+function showSignupStep1() {
+    hideAllAuthForms();
+    document.getElementById("signupStep1").classList.remove("hidden");
+}
+
+function backToSignupStep1() {
+    hideAllAuthForms();
+    document.getElementById("signupStep1").classList.remove("hidden");
+}
+
+function goToSignupStep2() {
+    const email = document.getElementById("signupEmail").value.trim();
+    const errorDiv = document.getElementById("signupStep1Error");
+    errorDiv.textContent = "";
+
+    const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    if (!gmailPattern.test(email)) {
+        errorDiv.textContent = "Please enter a valid Gmail address (e.g. you@gmail.com)";
+        return;
+    }
+
+    document.getElementById("signupEmailConfirm").textContent = email;
+    hideAllAuthForms();
+    document.getElementById("signupStep2").classList.remove("hidden");
+}
+
+function showForgotStep1() {
+    hideAllAuthForms();
+    document.getElementById("forgotStep1").classList.remove("hidden");
+}
+
+async function signup() {
+    const email = document.getElementById("signupEmail").value.trim();
+    const name = document.getElementById("signupName").value.trim();
+    const password = document.getElementById("signupPassword").value;
+    const errorDiv = document.getElementById("signupStep2Error");
+    const btn = document.getElementById("signupBtn");
+    errorDiv.textContent = "";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing up...';
+
+    try {
+        const res = await fetch(`${API_BASE}/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            const msg = Array.isArray(data.detail) ? data.detail[0].msg : (data.detail || "Signup failed");
+            errorDiv.textContent = msg;
+            return;
+        }
+        localStorage.setItem("token", data.token);
+        enterDashboard();
+    } catch (err) {
+        errorDiv.textContent = "Could not connect to server.";
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Sign Up";
+    }
+}
+
+async function login() {
+    const name = document.getElementById("loginName").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const errorDiv = document.getElementById("loginError");
+    const btn = document.getElementById("loginBtn");
+    errorDiv.textContent = "";
+
+    if (!name || !password) {
+        errorDiv.textContent = "Please enter both username and password.";
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Logging in...';
+
+    try {
+        const res = await fetch(`${API_BASE}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorDiv.textContent = data.detail || "Login failed";
+            return;
+        }
+        localStorage.setItem("token", data.token);
+        enterDashboard();
+    } catch (err) {
+        errorDiv.textContent = "Could not connect to server.";
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Login";
+    }
+}
+
+async function checkForgotUser() {
+    const name = document.getElementById("forgotName").value.trim();
+    const errorDiv = document.getElementById("forgotStep1Error");
+    const btn = document.getElementById("forgotStep1Btn");
+    errorDiv.textContent = "";
+
+    if (!name) {
+        errorDiv.textContent = "Please enter your username.";
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Checking...';
+
+    try {
+        const res = await fetch(`${API_BASE}/forgot-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorDiv.textContent = data.detail || "Could not find that username";
+            return;
+        }
+        pendingForgotName = name;
+        pendingMaskedEmail = data.masked_email;
+        document.getElementById("maskedEmailDisplay").textContent = data.masked_email;
+        hideAllAuthForms();
+        document.getElementById("forgotStep2").classList.remove("hidden");
+    } catch (err) {
+        errorDiv.textContent = "Could not connect to server.";
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Continue";
+    }
+}
+
+async function confirmSendCode() {
+    const errorDiv = document.getElementById("forgotStep2Error");
+    const btn = document.getElementById("confirmSendBtn");
+    errorDiv.textContent = "";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending...';
+
+    try {
+        const res = await fetch(`${API_BASE}/forgot-password/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: pendingForgotName })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorDiv.textContent = data.detail || "Could not send code";
+            return;
+        }
+        document.getElementById("maskedEmailDisplay2").textContent = data.masked_email;
+        hideAllAuthForms();
+        document.getElementById("forgotStep3").classList.remove("hidden");
+    } catch (err) {
+        errorDiv.textContent = "Could not connect to server.";
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Yes, send the code";
+    }
+}
+
+async function submitReset() {
+    const code = document.getElementById("resetCode").value.trim();
+    const new_password = document.getElementById("resetNewPassword").value;
+    const errorDiv = document.getElementById("resetError");
+    const btn = document.getElementById("resetBtn");
+    errorDiv.textContent = "";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Resetting...';
+
+    try {
+        const res = await fetch(`${API_BASE}/reset-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: pendingForgotName, code, new_password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorDiv.textContent = data.detail || "Reset failed";
+            return;
+        }
+        alert("Password reset successful. Please log in with your new password.");
+        showLogin();
+    } catch (err) {
+        errorDiv.textContent = "Could not connect to server.";
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Reset Password";
+    }
+}
+
+function clearAuthFields() {
+    document.getElementById("loginName").value = "";
+    document.getElementById("loginPassword").value = "";
+    document.getElementById("loginError").textContent = "";
+    document.getElementById("forgotName").value = "";
+    document.getElementById("forgotStep1Error").textContent = "";
+    document.getElementById("maskedEmailDisplay").textContent = "";
+    document.getElementById("maskedEmailDisplay2").textContent = "";
+    document.getElementById("resetCode").value = "";
+    document.getElementById("resetNewPassword").value = "";
+    document.getElementById("resetError").textContent = "";
+    document.getElementById("forgotStep2Error").textContent = "";
+    pendingForgotName = "";
+    pendingMaskedEmail = "";
+}
+
+function logout() {
+    localStorage.removeItem("token");
+    document.getElementById("dashboardSection").classList.add("hidden");
+    document.getElementById("authSection").classList.remove("hidden");
+    clearAuthFields();
+    showLogin();
+}
+
+async function enterDashboard() {
+    document.getElementById("authSection").classList.add("hidden");
+    document.getElementById("dashboardSection").classList.remove("hidden");
+    loadMe();
+    loadHistory();
+}
+
+async function loadMe() {
+    const badge = document.getElementById("userBadge");
+    try {
+        const res = await fetch(`${API_BASE}/me`, {
+            headers: { "Authorization": "Bearer " + getToken() }
+        });
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json();
+        badge.textContent = data.name ? data.name : data.email;
+    } catch (err) {
+        badge.textContent = "Unknown user";
+    }
+}
+
+async function checkEmail() {
+    const text = document.getElementById("emailText").value;
+    const resultDiv = document.getElementById("result");
+    const btn = document.getElementById("analyzeBtn");
+
+    if (!text.trim()) {
+        alert("Please paste some email text first.");
+        return;
+    }
+
+    resultDiv.style.display = "block";
+    resultDiv.className = "";
+    resultDiv.innerHTML = '<span class="spinner"></span> Analyzing...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`${API_BASE}/predict`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + getToken()
+            },
+            body: JSON.stringify({ text: text })
+        });
+
+        if (response.status === 401) {
+            alert("Session expired. Please log in again.");
+            logout();
+            return;
+        }
+
+        const data = await response.json();
+        const isPhishing = data.prediction === "Phishing Email";
+        resultDiv.className = isPhishing ? "phishing" : "safe";
+
+        let flagsHtml = data.red_flags.map(f => `<li>${f}</li>`).join("");
+
+        resultDiv.innerHTML = `
+            <h3>${isPhishing ? "⚠️ Phishing Email Detected" : "✅ Looks Safe"}</h3>
+            <p><strong>Confidence:</strong> ${data.confidence}%</p>
+            <p><strong>Reasoning:</strong></p>
+            <ul>${flagsHtml}</ul>
+        `;
+
+        loadHistory();
+    } catch (error) {
+        resultDiv.className = "";
+        resultDiv.innerHTML = "Error connecting to API.";
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function updateStats(history) {
+    const total = history.length;
+    const phishCount = history.filter(h => h.prediction === "Phishing Email").length;
+    const safeCount = total - phishCount;
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statPhish").textContent = phishCount;
+    document.getElementById("statSafe").textContent = safeCount;
+}
+
+function toggleDetail(id) {
+    const el = document.getElementById("detail-" + id);
+    el.classList.toggle("open");
+}
+
+async function deleteOneScan(id, event) {
+    event.stopPropagation();
+    if (!confirm("Delete this scan?")) return;
+    try {
+        const res = await fetch(`${API_BASE}/history/${id}`, {
+            method: "DELETE",
+            headers: { "Authorization": "Bearer " + getToken() }
+        });
+        if (res.status === 401) { logout(); return; }
+        loadHistory();
+    } catch (err) {
+        alert("Could not delete scan.");
+    }
+}
+
+async function loadHistory() {
+    const historyDiv = document.getElementById("historyList");
+    historyDiv.innerHTML = '<span class="spinner"></span> Loading...';
+    try {
+        const res = await fetch(`${API_BASE}/history`, {
+            headers: { "Authorization": "Bearer " + getToken() }
+        });
+        if (res.status === 401) {
+            logout();
+            return;
+        }
+        const data = await res.json();
+        updateStats(data.history);
+
+        if (data.history.length === 0) {
+            historyDiv.innerHTML = "<p style='color:var(--muted); font-size:14px;'>No scans yet.</p>";
+            return;
+        }
+
+        historyDiv.innerHTML = data.history.map(item => {
+            const isPhish = item.prediction === "Phishing Email";
+            const badgeClass = isPhish ? "badge-phish" : "badge-safe";
+            const flagsHtml = item.red_flags.map(f => `<li>${f}</li>`).join("");
+            return `
+                <div class="history-item" onclick="toggleDetail('${item._id}')">
+                    <div class="history-top">
+                        <div>
+                            <span class="badge ${badgeClass}">${item.prediction}</span>
+                            <span style="font-size:12px; color:var(--muted); margin-left:6px;">${item.confidence}%</span>
+                        </div>
+                        <button class="danger" onclick="deleteOneScan('${item._id}', event)">Delete</button>
+                    </div>
+                    <div class="history-preview">${item.email_text.substring(0, 70)}...</div>
+                    <small style="color:var(--muted);">${new Date(item.scanned_at + "Z").toLocaleString()}</small>
+                    <div class="history-detail" id="detail-${item._id}">
+                        <strong>Full text:</strong>
+                        <p>${item.email_text}</p>
+                        <strong>Red flags:</strong>
+                        <ul>${flagsHtml}</ul>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    } catch (err) {
+        historyDiv.innerHTML = "<p class='error'>Could not load history.</p>";
+    }
+}
+
+async function clearHistory() {
+    if (!confirm("Are you sure you want to delete all scan history? This cannot be undone.")) {
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/history`, {
+            method: "DELETE",
+            headers: { "Authorization": "Bearer " + getToken() }
+        });
+        if (res.status === 401) {
+            logout();
+            return;
+        }
+        loadHistory();
+    } catch (err) {
+        alert("Could not clear history.");
+    }
+}
+
+async function deleteAccount() {
+    if (!confirm("This will permanently delete your account and all scan history. This cannot be undone. Continue?")) {
+        return;
+    }
+    if (!confirm("Are you absolutely sure? This is your last chance to cancel.")) {
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/account`, {
+            method: "DELETE",
+            headers: { "Authorization": "Bearer " + getToken() }
+        });
+        if (res.status === 401) { logout(); return; }
+        if (!res.ok) {
+            alert("Could not delete account.");
+            return;
+        }
+        alert("Your account has been deleted.");
+        logout();
+    } catch (err) {
+        alert("Could not connect to server.");
+    }
+}
+
+window.onload = function() {
+    initTheme();
+    if (getToken()) {
+        enterDashboard();
+    }
+};
+</script>
+
+</body>
+</html>
