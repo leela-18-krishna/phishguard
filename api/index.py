@@ -9,6 +9,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 import re
 import random
@@ -46,8 +47,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = joblib.load('phishing_model.pkl')
-vectorizer = joblib.load('vectorizer.pkl')
+BASE_DIR = Path(__file__).resolve().parent
+model = joblib.load(BASE_DIR / "phishing_model.pkl")
+vectorizer = joblib.load(BASE_DIR / "vectorizer.pkl")
 
 
 def is_gmail(email: str) -> bool:
