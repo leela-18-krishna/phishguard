@@ -113,22 +113,30 @@
 
     .password-wrap {
         position: relative;
+        display: flex;
+        align-items: center;
     }
     .password-wrap input {
+        flex: 1;
         padding-right: 44px;
+        margin-top: 8px;
     }
     .eye-toggle {
         position: absolute;
-        right: 10px;
+        right: 8px;
         top: 50%;
-        transform: translateY(calc(-50% + 4px));
+        transform: translateY(-50%);
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 16px;
-        padding: 4px;
-        margin-top: 0;
+        font-size: 18px;
+        line-height: 1;
+        padding: 8px;
+        margin: 0;
         color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     button {
